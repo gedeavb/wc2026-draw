@@ -321,3 +321,29 @@ button:disabled {
   cursor: not-allowed;
   transform: none;
 }
+
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border);
+  border-top-color: var(--s-mid);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.saving-badge {
+  font-size: 11px;
+  color: var(--text2);
+  animation: pulse 1s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.saved-badge {
+  font-size: 11px;
+  color: var(--a-mid);
+}
+
+.reset-all-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
