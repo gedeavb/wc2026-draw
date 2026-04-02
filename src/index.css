@@ -1,0 +1,72 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --s: #4B3FD4;
+  --s-light: #EEEDFE;
+  --s-mid: #7F77DD;
+  --s-text: #3C3489;
+  --a: #0F6E56;
+  --a-light: #E1F5EE;
+  --a-mid: #1D9E75;
+  --a-text: #085041;
+  --b: #993C1D;
+  --b-light: #FAECE7;
+  --b-mid: #D85A30;
+  --b-text: #712B13;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1c1c1c;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0ede8;
+  --text2: #9a9590;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+input[type="text"] {
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+input[type="text"]:focus { border-color: rgba(255,255,255,0.25); }
+input[type="text"]::placeholder { color: var(--text2); }
+
+button {
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+button:hover { background: #2a2a2a; }
+button:active { transform: scale(0.97); }
+button.primary {
+  background: var(--s);
+  border-color: transparent;
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 20px;
+}
+button.primary:hover { background: #5a52e0; }
+button.danger { background: #3a1010; border-color: #6b2020; color: #f09595; }

@@ -1,0 +1,323 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  padding: 1.5rem 1.5rem 0;
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.trophy {
+  font-size: 36px;
+  line-height: 1;
+}
+.app-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+.app-sub {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 1rem 1.5rem 0;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  border-bottom: 0.5px solid var(--border);
+  margin-bottom: 0;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+  margin-bottom: -0.5px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { background: transparent; color: var(--text); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--s-mid); }
+
+/* Main */
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+.tab-view { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  border: 0.5px solid;
+}
+.stat-s { background: #1a1535; border-color: #4B3FD4; }
+.stat-a { background: #0a1f1a; border-color: #0F6E56; }
+.stat-b { background: #1f0f0a; border-color: #993C1D; }
+.stat-pot { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.05em; }
+.stat-s .stat-pot { color: var(--s-mid); }
+.stat-a .stat-pot { color: var(--a-mid); }
+.stat-b .stat-pot { color: var(--b-mid); }
+.stat-num { font-weight: 600; font-size: 15px; }
+.stat-unit { color: var(--text2); }
+
+/* Pots grid */
+.pots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 680px) {
+  .pots-grid { grid-template-columns: 1fr; }
+}
+
+.pot-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+  overflow: hidden;
+}
+.pot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--border);
+}
+.pot-s .pot-header { background: #1a1535; }
+.pot-a .pot-header { background: #0a1f1a; }
+.pot-b .pot-header { background: #1f0f0a; }
+.pot-letter {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.pot-s .pot-letter { color: var(--s-mid); }
+.pot-a .pot-letter { color: var(--a-mid); }
+.pot-b .pot-letter { color: var(--b-mid); }
+.pot-label { font-size: 12px; color: var(--text2); flex: 1; }
+.pot-count { font-size: 11px; color: var(--text2); }
+
+.pot-body { padding: 10px; }
+
+.club-list { list-style: none; display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.club-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  transition: opacity 0.2s;
+}
+.club-item.used { opacity: 0.3; }
+.club-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pot-s .club-dot { background: var(--s-mid); }
+.pot-a .club-dot { background: var(--a-mid); }
+.pot-b .club-dot { background: var(--b-mid); }
+.club-name { flex: 1; color: var(--text); }
+.used-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text2);
+}
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.club-item:hover .remove-btn { opacity: 1; }
+.empty-club { font-size: 12px; color: var(--text2); padding: 4px 8px; }
+
+.pot-input-row { display: flex; gap: 6px; }
+.pot-input-row input { font-size: 12px; padding: 6px 10px; }
+.pot-input-row button { padding: 6px 10px; font-size: 14px; }
+
+.actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Section label */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+
+/* Name input */
+.name-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.name-input-row input { max-width: 360px; }
+
+.names-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+.name-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 12px;
+  border-radius: 100px;
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+  animation: popIn 0.2s ease;
+}
+@keyframes popIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-remove:hover { color: var(--text); background: none; }
+.empty-hint { font-size: 14px; color: var(--text2); }
+.names-count { font-size: 13px; color: var(--text2); }
+
+/* Draw */
+.draw-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+.draw-stat {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.ds-val { display: block; font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 1; letter-spacing: 0.04em; }
+.ds-remain { color: var(--s-mid); }
+.ds-label { display: block; font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.warning-box {
+  background: #2a1515;
+  border: 0.5px solid #6b2020;
+  border-radius: var(--radius-sm);
+  color: #f09595;
+  font-size: 13px;
+  padding: 10px 14px;
+  margin-bottom: 1rem;
+}
+
+.draw-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.draw-actions .primary { font-size: 15px; padding: 12px 24px; }
+
+.results-list { display: flex; flex-direction: column; gap: 8px; }
+.result-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  transition: border-color 0.3s;
+}
+.result-new {
+  border-color: var(--s-mid);
+  animation: slideIn 0.35s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.result-index {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  min-width: 28px;
+  line-height: 1.2;
+}
+.result-content { flex: 1; }
+.result-name { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.result-clubs { display: flex; gap: 8px; flex-wrap: wrap; }
+.club-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-s { background: #1a1535; color: #AFA9EC; border: 0.5px solid #4B3FD4; }
+.badge-a { background: #0a1f1a; color: #5DCAA5; border: 0.5px solid #0F6E56; }
+.badge-b { background: #1f0f0a; color: #F0997B; border: 0.5px solid #993C1D; }
+.badge-pot {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.draw-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text2);
+}
+.draw-empty-icon { font-size: 40px; margin-bottom: 12px; }
+.draw-empty p { font-size: 14px; }
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
