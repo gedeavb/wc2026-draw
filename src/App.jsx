@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { supabase } from './supabase'
 import './App.css'
 
 const DEFAULT_CLUBS = {
@@ -7,36 +8,25 @@ const DEFAULT_CLUBS = {
   B: ['Australia', 'Korea Selatan', 'Ghana', 'Ekuador', 'Kamerun', 'Tunisia', 'Iran', 'Swiss'],
 }
 
+const DEFAULT_STATE = {
+  clubs: { S: [...DEFAULT_CLUBS.S], A: [...DEFAULT_CLUBS.A], B: [...DEFAULT_CLUBS.B] },
+  names: [],
+  results: [],
+  used_clubs: { S: [], A: [], B: [] },
+  draw_done: false,
+}
+
 const POT_META = {
   S: { label: 'Unggulan Utama', color: 'pot-s' },
   A: { label: 'Pot Menengah', color: 'pot-a' },
   B: { label: 'Pot Underdog', color: 'pot-b' },
 }
 
-function useLocalStorage(key, initialValue) {
-  const [value, setValue] = useState(() => {
-    try {
-      const stored = localStorage.getItem(key)
-      return stored !== null ? JSON.parse(stored) : initialValue
-    } catch {
-      return initialValue
-    }
-  })
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value))
-    } catch {}
-  }, [key, value])
-
-  return [value, setValue]
-}
-
-function setsToArrays(obj) {
-  return { S: [...obj.S], A: [...obj.A], B: [...obj.B] }
-}
 function arraysToSets(obj) {
   return { S: new Set(obj.S), A: new Set(obj.A), B: new Set(obj.B) }
+}
+function setsToArrays(obj) {
+  return { S: [...obj.S], A: [...obj.A], B: [...obj.B] }
 }
 
 function shuffle(arr) {
@@ -51,14 +41,12 @@ function shuffle(arr) {
 function PotCard({ pot, clubs, usedClubs, onAdd, onRemove }) {
   const [input, setInput] = useState('')
   const meta = POT_META[pot]
-
   const handleAdd = () => {
     const v = input.trim()
     if (!v) return
     onAdd(pot, v)
     setInput('')
   }
-
   return (
     <div className={`pot-card ${meta.color}`}>
       <div className="pot-header">
@@ -73,7 +61,7 @@ function PotCard({ pot, clubs, usedClubs, onAdd, onRemove }) {
               <span className="club-dot" />
               <span className="club-name">{c}</span>
               {usedClubs.has(c) && <span className="used-badge">terpakai</span>}
-              <button className="remove-btn" onClick={() => onRemove(pot, i)} title="Hapus">x</button>
+              <button className="remove-btn" onClick={() => onRemove(pot, i)}>x</button>
             </li>
           ))}
           {clubs.length === 0 && <li className="empty-club">Belum ada klub</li>}
@@ -113,67 +101,107 @@ function ResultCard({ result, index, isNew }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useLocalStorage('wc26_tab', 'setup')
-  const [clubs, setClubs] = useLocalStorage('wc26_clubs', {
-    S: [...DEFAULT_CLUBS.S],
-    A: [...DEFAULT_CLUBS.A],
-    B: [...DEFAULT_CLUBS.B],
-  })
-  const [names, setNames] = useLocalStorage('wc26_names', [])
-  const [results, setResults] = useLocalStorage('wc26_results', [])
-  const [drawDone, setDrawDone] = useLocalStorage('wc26_drawdone', false)
-  const [usedClubsRaw, setUsedClubsRaw] = useLocalStorage('wc26_used', { S: [], A: [], B: [] })
-
+  const [tab, setTab] = useState('setup')
+  const [clubs, setClubs] = useState(DEFAULT_STATE.clubs)
+  const [names, setNames] = useState([])
+  const [results, setResults] = useState([])
+  const [drawDone, setDrawDone] = useState(false)
+  const [usedClubsRaw, setUsedClubsRaw] = useState({ S: [], A: [], B: [] })
   const usedClubs = arraysToSets(usedClubsRaw)
-  const setUsedClubs = (valOrFn) => {
-    if (typeof valOrFn === 'function') {
-      setUsedClubsRaw(prev => setsToArrays(valOrFn(arraysToSets(prev))))
-    } else {
-      setUsedClubsRaw(setsToArrays(valOrFn))
-    }
-  }
 
   const [nameInput, setNameInput] = useState('')
   const [newResultNames, setNewResultNames] = useState(new Set())
   const [warning, setWarning] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const saveTimer = useRef(null)
+
+  // Load data dari Supabase saat pertama buka
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('draw_data')
+        .select('*')
+        .eq('id', 'session')
+        .single()
+
+      if (!error && data) {
+        setClubs(data.clubs || DEFAULT_STATE.clubs)
+        setNames(data.names || [])
+        setResults(data.results || [])
+        setUsedClubsRaw(data.used_clubs || { S: [], A: [], B: [] })
+        setDrawDone(data.draw_done || false)
+      }
+      setLoading(false)
+    }
+    loadData()
+
+    // Realtime: sync ke semua device yang buka app
+    const channel = supabase
+      .channel('draw_data_changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'draw_data' }, payload => {
+        const d = payload.new
+        setClubs(d.clubs || DEFAULT_STATE.clubs)
+        setNames(d.names || [])
+        setResults(d.results || [])
+        setUsedClubsRaw(d.used_clubs || { S: [], A: [], B: [] })
+        setDrawDone(d.draw_done || false)
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [])
+
+  // Simpan ke Supabase dengan debounce 600ms
+  const saveToSupabase = useCallback((patch) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true)
+      await supabase.from('draw_data').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', 'session')
+      setSaving(false)
+    }, 600)
+  }, [])
+
+  const updateClubs = (next) => { setClubs(next); saveToSupabase({ clubs: next }) }
+  const updateNames = (fn) => { setNames(prev => { const next = typeof fn === 'function' ? fn(prev) : fn; saveToSupabase({ names: next }); return next }) }
+  const updateResults = (fn) => { setResults(prev => { const next = typeof fn === 'function' ? fn(prev) : fn; return next }) }
+  const updateUsed = (next) => { const arr = setsToArrays(next); setUsedClubsRaw(arr); return arr }
 
   const addClub = (pot, name) => {
     if (clubs[pot].includes(name)) return
-    setClubs(prev => ({ ...prev, [pot]: [...prev[pot], name] }))
+    const next = { ...clubs, [pot]: [...clubs[pot], name] }
+    updateClubs(next)
   }
 
   const removeClub = (pot, idx) => {
-    setClubs(prev => ({ ...prev, [pot]: prev[pot].filter((_, i) => i !== idx) }))
+    const next = { ...clubs, [pot]: clubs[pot].filter((_, i) => i !== idx) }
+    updateClubs(next)
   }
 
   const addName = () => {
     const v = nameInput.trim()
     if (!v || names.includes(v)) return
-    setNames(prev => [...prev, v])
+    updateNames(prev => [...prev, v])
     setNameInput('')
   }
 
-  const removeName = idx => setNames(prev => prev.filter((_, i) => i !== idx))
+  const removeName = idx => updateNames(prev => prev.filter((_, i) => i !== idx))
 
-  const loadDefaults = () => setClubs({
-    S: [...DEFAULT_CLUBS.S],
-    A: [...DEFAULT_CLUBS.A],
-    B: [...DEFAULT_CLUBS.B],
-  })
+  const loadDefaults = () => updateClubs({ S: [...DEFAULT_CLUBS.S], A: [...DEFAULT_CLUBS.A], B: [...DEFAULT_CLUBS.B] })
+  const clearClubs = () => updateClubs({ S: [], A: [], B: [] })
 
-  const clearClubs = () => setClubs({ S: [], A: [], B: [] })
-
-  const runDraw = useCallback(() => {
+  const runDraw = () => {
     setWarning('')
     if (names.length === 0) { setWarning('Tambahkan peserta terlebih dahulu.'); return }
 
     const avail = pot => clubs[pot].filter(c => !usedClubs[pot].has(c))
     const undone = names.filter(n => !results.find(r => r.name === n))
-    if (undone.length === 0) { setWarning('Semua peserta sudah di-draw. Reset untuk mengulang.'); setDrawDone(true); return }
+    if (undone.length === 0) { setWarning('Semua peserta sudah di-draw. Reset untuk mengulang.'); return }
 
     for (const pot of ['S', 'A', 'B']) {
       if (avail(pot).length < undone.length) {
-        setWarning(`Klub di pot ${pot} tidak cukup (tersedia ${avail(pot).length}, butuh ${undone.length}). Tambah lebih banyak klub.`)
+        setWarning(`Klub di pot ${pot} tidak cukup (tersedia ${avail(pot).length}, butuh ${undone.length}).`)
         return
       }
     }
@@ -192,29 +220,45 @@ export default function App() {
       newUsed.B.add(picked.B[i])
     })
 
-    setUsedClubs(newUsed)
-    setResults(prev => [...prev, ...newResults])
-    setNewResultNames(newNames)
+    const usedArr = updateUsed(newUsed)
+    const nextResults = [...results, ...newResults]
+    setResults(nextResults)
     setDrawDone(true)
+    setNewResultNames(newNames)
     setTimeout(() => setNewResultNames(new Set()), 1500)
-  }, [clubs, names, results, usedClubs])
+
+    saveToSupabase({ results: nextResults, used_clubs: usedArr, draw_done: true })
+  }
 
   const resetDraw = () => {
     setResults([])
-    setUsedClubs({ S: new Set(), A: new Set(), B: new Set() })
-    setWarning('')
+    setUsedClubsRaw({ S: [], A: [], B: [] })
     setDrawDone(false)
+    setWarning('')
     setNewResultNames(new Set())
+    saveToSupabase({ results: [], used_clubs: { S: [], A: [], B: [] }, draw_done: false })
   }
 
-  const handleResetAll = () => {
-    if (window.confirm('Hapus semua data tersimpan dan mulai dari awal?')) {
-      localStorage.clear()
-      window.location.reload()
-    }
+  const handleResetAll = async () => {
+    if (!window.confirm('Hapus semua data dan mulai dari awal?')) return
+    const fresh = { clubs: DEFAULT_STATE.clubs, names: [], results: [], used_clubs: { S: [], A: [], B: [] }, draw_done: false }
+    await supabase.from('draw_data').update({ ...fresh, updated_at: new Date().toISOString() }).eq('id', 'session')
+    setClubs(fresh.clubs)
+    setNames([])
+    setResults([])
+    setUsedClubsRaw(fresh.used_clubs)
+    setDrawDone(false)
+    setWarning('')
   }
 
   const undone = names.filter(n => !results.find(r => r.name === n))
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '12px' }}>
+      <div className="spinner" />
+      <p style={{ color: 'var(--text2)', fontSize: '14px' }}>Memuat data...</p>
+    </div>
+  )
 
   return (
     <div className="app">
@@ -225,9 +269,11 @@ export default function App() {
             <h1 className="app-title">Drawing Club</h1>
             <p className="app-sub">Piala Dunia 2026</p>
           </div>
-          <button className="reset-all-btn" onClick={handleResetAll} title="Reset semua data">
-            Reset Semua
-          </button>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {saving && <span className="saving-badge">menyimpan...</span>}
+            {!saving && <span className="saved-badge">tersimpan</span>}
+            <button className="reset-all-btn" onClick={handleResetAll}>Reset Semua</button>
+          </div>
         </div>
       </header>
 
@@ -240,7 +286,6 @@ export default function App() {
       </div>
 
       <main className="main-content">
-
         {tab === 'setup' && (
           <div className="tab-view">
             <div className="stats-row">
@@ -284,51 +329,34 @@ export default function App() {
                   <button className="tag-remove" onClick={() => removeName(i)}>x</button>
                 </span>
               ))}
-              {names.length === 0 && <p className="empty-hint">Belum ada peserta. Tambahkan nama di atas.</p>}
+              {names.length === 0 && <p className="empty-hint">Belum ada peserta.</p>}
             </div>
-            {names.length > 0 && (
-              <p className="names-count">{names.length} peserta terdaftar</p>
-            )}
+            {names.length > 0 && <p className="names-count">{names.length} peserta terdaftar</p>}
           </div>
         )}
 
         {tab === 'draw' && (
           <div className="tab-view">
             <div className="draw-stats">
-              <div className="draw-stat">
-                <span className="ds-val">{names.length}</span>
-                <span className="ds-label">Total peserta</span>
-              </div>
-              <div className="draw-stat">
-                <span className="ds-val">{results.length}</span>
-                <span className="ds-label">Sudah di-draw</span>
-              </div>
-              <div className="draw-stat">
-                <span className="ds-val ds-remain">{undone.length}</span>
-                <span className="ds-label">Belum di-draw</span>
-              </div>
+              <div className="draw-stat"><span className="ds-val">{names.length}</span><span className="ds-label">Total peserta</span></div>
+              <div className="draw-stat"><span className="ds-val">{results.length}</span><span className="ds-label">Sudah di-draw</span></div>
+              <div className="draw-stat"><span className="ds-val ds-remain">{undone.length}</span><span className="ds-label">Belum di-draw</span></div>
             </div>
-
             {warning && <div className="warning-box">{warning}</div>}
-
             <div className="draw-actions">
               <button className="primary" onClick={runDraw} disabled={drawDone && undone.length === 0}>
                 {results.length === 0 ? 'Mulai Draw' : undone.length > 0 ? `Draw ${undone.length} peserta` : 'Semua sudah di-draw'}
               </button>
               <button className="danger" onClick={resetDraw}>Reset Draw</button>
             </div>
-
             {results.length > 0 && (
               <>
                 <div className="section-label" style={{ marginTop: '1.5rem' }}>Hasil draw</div>
                 <div className="results-list">
-                  {results.map((r, i) => (
-                    <ResultCard key={r.name} result={r} index={i} isNew={newResultNames.has(r.name)} />
-                  ))}
+                  {results.map((r, i) => <ResultCard key={r.name} result={r} index={i} isNew={newResultNames.has(r.name)} />)}
                 </div>
               </>
             )}
-
             {results.length === 0 && (
               <div className="draw-empty">
                 <div className="draw-empty-icon">🎯</div>
