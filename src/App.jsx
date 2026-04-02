@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import './App.css'
 
 const DEFAULT_CLUBS = {
@@ -11,6 +11,32 @@ const POT_META = {
   S: { label: 'Unggulan Utama', color: 'pot-s' },
   A: { label: 'Pot Menengah', color: 'pot-a' },
   B: { label: 'Pot Underdog', color: 'pot-b' },
+}
+
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    try {
+      const stored = localStorage.getItem(key)
+      return stored !== null ? JSON.parse(stored) : initialValue
+    } catch {
+      return initialValue
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {}
+  }, [key, value])
+
+  return [value, setValue]
+}
+
+function setsToArrays(obj) {
+  return { S: [...obj.S], A: [...obj.A], B: [...obj.B] }
+}
+function arraysToSets(obj) {
+  return { S: new Set(obj.S), A: new Set(obj.A), B: new Set(obj.B) }
 }
 
 function shuffle(arr) {
@@ -47,7 +73,7 @@ function PotCard({ pot, clubs, usedClubs, onAdd, onRemove }) {
               <span className="club-dot" />
               <span className="club-name">{c}</span>
               {usedClubs.has(c) && <span className="used-badge">terpakai</span>}
-              <button className="remove-btn" onClick={() => onRemove(pot, i)} title="Hapus">×</button>
+              <button className="remove-btn" onClick={() => onRemove(pot, i)} title="Hapus">x</button>
             </li>
           ))}
           {clubs.length === 0 && <li className="empty-club">Belum ada klub</li>}
@@ -87,15 +113,29 @@ function ResultCard({ result, index, isNew }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('setup')
-  const [clubs, setClubs] = useState({ S: [...DEFAULT_CLUBS.S], A: [...DEFAULT_CLUBS.A], B: [...DEFAULT_CLUBS.B] })
-  const [names, setNames] = useState([])
+  const [tab, setTab] = useLocalStorage('wc26_tab', 'setup')
+  const [clubs, setClubs] = useLocalStorage('wc26_clubs', {
+    S: [...DEFAULT_CLUBS.S],
+    A: [...DEFAULT_CLUBS.A],
+    B: [...DEFAULT_CLUBS.B],
+  })
+  const [names, setNames] = useLocalStorage('wc26_names', [])
+  const [results, setResults] = useLocalStorage('wc26_results', [])
+  const [drawDone, setDrawDone] = useLocalStorage('wc26_drawdone', false)
+  const [usedClubsRaw, setUsedClubsRaw] = useLocalStorage('wc26_used', { S: [], A: [], B: [] })
+
+  const usedClubs = arraysToSets(usedClubsRaw)
+  const setUsedClubs = (valOrFn) => {
+    if (typeof valOrFn === 'function') {
+      setUsedClubsRaw(prev => setsToArrays(valOrFn(arraysToSets(prev))))
+    } else {
+      setUsedClubsRaw(setsToArrays(valOrFn))
+    }
+  }
+
   const [nameInput, setNameInput] = useState('')
-  const [results, setResults] = useState([])
-  const [usedClubs, setUsedClubs] = useState({ S: new Set(), A: new Set(), B: new Set() })
   const [newResultNames, setNewResultNames] = useState(new Set())
   const [warning, setWarning] = useState('')
-  const [drawDone, setDrawDone] = useState(false)
 
   const addClub = (pot, name) => {
     if (clubs[pot].includes(name)) return
@@ -115,7 +155,12 @@ export default function App() {
 
   const removeName = idx => setNames(prev => prev.filter((_, i) => i !== idx))
 
-  const loadDefaults = () => setClubs({ S: [...DEFAULT_CLUBS.S], A: [...DEFAULT_CLUBS.A], B: [...DEFAULT_CLUBS.B] })
+  const loadDefaults = () => setClubs({
+    S: [...DEFAULT_CLUBS.S],
+    A: [...DEFAULT_CLUBS.A],
+    B: [...DEFAULT_CLUBS.B],
+  })
+
   const clearClubs = () => setClubs({ S: [], A: [], B: [] })
 
   const runDraw = useCallback(() => {
@@ -128,7 +173,7 @@ export default function App() {
 
     for (const pot of ['S', 'A', 'B']) {
       if (avail(pot).length < undone.length) {
-        setWarning(`Klub di pot ${pot} tidak cukup untuk semua peserta (tersedia ${avail(pot).length}, butuh ${undone.length}). Tambah lebih banyak klub.`)
+        setWarning(`Klub di pot ${pot} tidak cukup (tersedia ${avail(pot).length}, butuh ${undone.length}). Tambah lebih banyak klub.`)
         return
       }
     }
@@ -162,6 +207,13 @@ export default function App() {
     setNewResultNames(new Set())
   }
 
+  const handleResetAll = () => {
+    if (window.confirm('Hapus semua data tersimpan dan mulai dari awal?')) {
+      localStorage.clear()
+      window.location.reload()
+    }
+  }
+
   const undone = names.filter(n => !results.find(r => r.name === n))
 
   return (
@@ -173,13 +225,16 @@ export default function App() {
             <h1 className="app-title">Drawing Club</h1>
             <p className="app-sub">Piala Dunia 2026</p>
           </div>
+          <button className="reset-all-btn" onClick={handleResetAll} title="Reset semua data">
+            Reset Semua
+          </button>
         </div>
       </header>
 
       <div className="tab-bar">
         {['setup', 'peserta', 'draw'].map(t => (
           <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'setup' ? '⚙ Setup Klub' : t === 'peserta' ? '👥 Peserta' : '🎲 Draw & Hasil'}
+            {t === 'setup' ? 'Setup Klub' : t === 'peserta' ? 'Peserta' : 'Draw & Hasil'}
           </button>
         ))}
       </div>
@@ -203,7 +258,7 @@ export default function App() {
               ))}
             </div>
             <div className="actions-row">
-              <button onClick={loadDefaults}>↺ Klub default WC 2026</button>
+              <button onClick={loadDefaults}>Klub default WC 2026</button>
               <button className="danger" onClick={clearClubs}>Kosongkan semua</button>
             </div>
           </div>
@@ -226,7 +281,7 @@ export default function App() {
               {names.map((n, i) => (
                 <span key={n} className="name-tag">
                   {n}
-                  <button className="tag-remove" onClick={() => removeName(i)}>×</button>
+                  <button className="tag-remove" onClick={() => removeName(i)}>x</button>
                 </span>
               ))}
               {names.length === 0 && <p className="empty-hint">Belum ada peserta. Tambahkan nama di atas.</p>}
@@ -258,7 +313,7 @@ export default function App() {
 
             <div className="draw-actions">
               <button className="primary" onClick={runDraw} disabled={drawDone && undone.length === 0}>
-                🎲 {results.length === 0 ? 'Mulai Draw' : undone.length > 0 ? `Draw ${undone.length} peserta` : 'Semua sudah di-draw'}
+                {results.length === 0 ? 'Mulai Draw' : undone.length > 0 ? `Draw ${undone.length} peserta` : 'Semua sudah di-draw'}
               </button>
               <button className="danger" onClick={resetDraw}>Reset Draw</button>
             </div>
